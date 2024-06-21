@@ -16,6 +16,8 @@ class MoviesscraperPipeline:
         # item = self.cleaning_title(item)
         item = self.cleaning_original_title(item)
         item = self.cleaning_score(item)
+        item = self.cleaning_season(item)
+        item = self.cleaning_episode(item)
         item = self.cleaning_gender(item)
         item = self.cleaning_duration(item)
         item = self.cleaning_description(item)
@@ -60,6 +62,33 @@ class MoviesscraperPipeline:
             # je transforme en float
             cleaned_score = score.replace(',', '.')
             adapter['score'] = cleaned_score
+        return item
+    
+    def cleaning_season(self, item):
+        adapter = ItemAdapter(item)
+
+        nb_seasons = adapter.get('nb_seasons')
+
+        # je n'applique la modification que si le score existe et qu'il est en string
+        if nb_seasons and isinstance(nb_seasons, str):
+            motif = r'\d+'
+
+            cleaned_season = re.search(motif, nb_seasons).group()
+            adapter['nb_seasons'] = cleaned_season
+        else:
+            adapter['nb_seasons'] = nb_seasons
+        return item
+    
+    def cleaning_episode(self, item):
+        adapter = ItemAdapter(item)
+
+        nb_episodes = adapter.get('nb_episodes')
+
+        # je n'applique la modification que si le score existe et qu'il est en string
+        if nb_episodes and isinstance(nb_episodes, str):
+            # je transforme en float
+            cleaned_episode = nb_episodes.replace(',', '.')
+            adapter['nb_episodes'] = cleaned_episode
         return item
     
     def cleaning_gender(self, item):
@@ -275,13 +304,16 @@ class DatabasePipeline:
         # je gère les noms composés
         if len(name_parts) == 1:
             first_name = name
+            last_name = None
+            exist_person = self.session.query(Person).filter_by(first_name=first_name).first()
         elif len(name_parts) == 2:
             first_name, last_name = name.split()
+            exist_person = self.session.query(Person).filter_by(first_name=first_name, last_name=last_name).first()
         else:
             first_name = name[0]
             last_name = ' '.join(name_parts[1:])
+            exist_person = self.session.query(Person).filter_by(first_name=first_name, last_name=last_name).first()
 
-        exist_person = self.session.query(Person).filter_by(first_name=first_name, last_name=last_name).first()
         if not exist_person:
             exist_person = Person(first_name=first_name, last_name=last_name, role=role)
             self.session.add(exist_person)
